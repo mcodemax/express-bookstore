@@ -1,5 +1,9 @@
 const express = require("express");
 const Book = require("../models/book");
+const jsonschema = require("jsonschema");
+const bookSchema = require("../schemas/bookSchema.json");
+const updateBookSchema = require("../schemas/updateBookSchema.json");
+const ExpressError = require("../expressError");
 
 const router = new express.Router();
 
@@ -26,10 +30,20 @@ router.get("/:id", async function (req, res, next) {
   }
 });
 
-/** POST /   bookData => {book: newBook}  */
+/** POST /   bookData => {book: newBook}  
+ * 
+*/
 
 router.post("/", async function (req, res, next) {
   try {
+    const schemaValid = jsonschema.validate(req.body, bookSchema);
+    
+    if(!schemaValid.valid){
+      const errList = schemaValid.errors.map(e => e.stack);
+      const error = new ExpressError(errList, 400)
+      return next(error);
+    }
+
     const book = await Book.create(req.body);
     return res.status(201).json({ book });
   } catch (err) {
@@ -41,6 +55,18 @@ router.post("/", async function (req, res, next) {
 
 router.put("/:isbn", async function (req, res, next) {
   try {
+    if ("isbn" in req.body) {
+      return next(new ExpressError('isbn not allowed in req body', 400));
+    }
+
+    const schemaValid = jsonschema.validate(req.body, updateBookSchema);
+    
+    if(!schemaValid.valid){
+      const errList = schemaValid.errors.map(e => e.stack);
+      const error = new ExpressError(errList, 400)
+      return next(error);
+    }
+
     const book = await Book.update(req.params.isbn, req.body);
     return res.json({ book });
   } catch (err) {
